@@ -1,0 +1,199 @@
+#!/bin/bash
+#
+# VMware Installer Launcher
+#
+# This is the executable stub to check if the VMware Installer Service
+# is installed and if so, launch it.  If it is not installed, the
+# attached payload is extracted, the VMIS is installed, and the VMIS
+# is launched to install the bundle as normal.
+
+# Architecture this bundle was built for (x86 or x64)
+
+if [ -z "$BASH" ]; then
+   # $- expands to the current options so things like -x get passed through
+   if [ ! -z "$-" ]; then
+      opts="-$-"
+   fi
+
+   # dash flips out of $opts is quoted, so don't.
+   exec /usr/bin/env bash $opts "$0" "$@"
+   echo "Unable to restart with bash shell"
+   exit 1
+fi
+
+#set -e
+
+FILE_SIZE=`stat --format "%s" "$0"`
+offset=$(($FILE_SIZE - 4))
+
+MAGIC_OFFSET=$offset
+offset=$(($offset - 4))
+
+LAUNCHER_SIZE_OFFSET=$offset
+offset=$(($offset - 4))
+
+on_exit() {
+      rm -rf "$ANTI_TEMP"
+}
+
+trap on_exit EXIT
+
+set_lengths() {
+   local file="$1"
+   if [ ! -s "$file" ]; then
+      echo "$file does not exist"
+      exit 1
+   fi
+
+   # XXX: put extraction in its own function
+   MAGIC_NUMBER=`od -An -t u4 -N 4 -j $MAGIC_OFFSET "$file" | tr -d ' '`
+
+   if [ "$MAGIC_NUMBER" != "2576914326" ]; then
+      echo "magic number does not match"
+      exit 1
+   fi
+
+   LAUNCHER_SIZE=`od -An -t u4 -N 4 -j $LAUNCHER_SIZE_OFFSET "$file" | tr -d ' '`
+
+   return 0
+}
+
+is_relative() {
+    local path="$1"
+    shift
+
+    [ "${path:0:1}" != "/" ]
+    return
+}
+
+check_docker(){
+    local docker_installed=`which docker 2> /dev/null | grep docker`
+
+    if [ -n "$docker_installed" ]; then
+       # docker_status=`service docker status | grep running`
+       # if [ -z "$docker_status" ]; then
+       #     service docker restart > /dev/null 2>&1
+       #     sleep 3
+       #     docker_status=`service docker status | grep running`
+       #     if [ -z "$docker_status" ]; then
+       #         echo "Docker can not run" 
+       #         exit 1             
+       #     fi     
+       # fi
+       local docker_version=`docker version --format '{{.Client.Version}}' 2>/dev/null`
+       local high=`echo -n $docker_version | cut -d . -f 1`
+       local middle=`echo -n $docker_version | cut -d . -f 2`
+       local low=`echo -n $docker_version | cut -d . -f 3`
+       local sum=$(($high * 200 * 200 + $middle * 200 + $low))
+       local docker_need=$((1 * 200 * 200 + 8 * 200 + 2))
+
+       if [ $sum -lt $docker_need ]; then
+           echo "Docker version is low, please upgrade"
+           exit 1       
+       fi
+      
+    else 
+        echo "Docker is not installed"
+        exit 1
+    fi 
+}
+
+
+check_software(){
+   local rpm_installed=`which rpm 2> /dev/null | grep rpm`
+  
+   if [ -n "$rpm_installed" ]; then
+       local rpm_inquire=`rpm -qa | grep antiddos`
+       if [ -n "$rpm_inquire" ]; then
+           echo -n "Removing old antiddos..."
+           rpm -e antiddos > /dev/null 2>&1
+           echo "done"
+           return 1
+       fi 
+   fi 
+   
+   local dpkg_installed=`which dpkg 2> /dev/null | grep dpkg`
+
+   if [ -n "$dpkg_installed" ]; then
+       local dkpg_inquire=`dpkg -l | grep antiddos`
+       if [ -n "$dkpg_inquire" ]; then 
+           echo -n "Removing old antiddos..."
+           dpkg -r antiddos > /dev/null 2>&1
+           echo "done"
+           return 1
+       fi 
+   fi
+
+   return 0
+}
+
+
+extract_self() {
+   ANTI_TEMP=/antiddos
+   local file="$0"
+
+   if is_relative "$file"; then
+      file="$PWD/$file"
+   fi
+
+   (cd / && dd if="$file" ibs=$LAUNCHER_SIZE obs=1024 skip=1 2> /dev/null | \
+      gunzip -c 2> /dev/null | tar -xf - 2> /dev/null)
+}
+
+install(){
+   
+  ##postinststart##
+
+
+  ##postinstend##
+
+  return 1
+}
+
+
+uninstall(){
+
+  ##prermstart##
+
+  ##prermend##
+
+  return 1
+}
+
+
+
+main() {
+   local fullpath="$0"
+   
+   if ! set_lengths "$0"; then
+      echo "Unable to extract lengths from bundle."
+      exit 1
+   fi
+
+   if check_software 0; then
+      check_docker
+   fi
+
+   if is_relative "$fullpath"; then
+      fullpath="$PWD/$fullpath"
+   fi
+   
+   if [ -f /opt/antiddos/version ];then
+       echo "Removing old anti ddos..."
+       uninstall
+   fi
+   
+   rm -rf /antiddos/
+   
+   extract_self
+
+   echo "Installing new anti ddos..."
+
+   install 
+}
+
+
+
+main "$@"
+
+exit

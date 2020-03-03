@@ -1,0 +1,68 @@
+#!/bin/sh
+#
+# Copyright (c) <2015> <cetc 32> and others.  All rights reserved.
+#
+# This program and the accompanying materials are made available under the terms of the Eclipse Public License
+# v1.0 which accompanies this distribution, and is available at http://www.eclipse.org/legal/epl-v10.html
+# @author cetc 32 
+# @version 0.1
+#
+
+if [ ! -d /opt/antiddos/data/mysql ]; then
+mkdir -p /opt/antiddos/data/mysql
+cp -r /antiddos/lib/mysql/  /opt/antiddos/data/
+fi
+
+cp -r /antiddos/lib/mysql/mysql.sql /opt/antiddos/data/mysql/mysql.sql
+cp -r /antiddos/version /opt/antiddos/version
+
+if [ ! -d /opt/antiddos/data/elasticsearch ]; then
+mkdir -p /opt/antiddos/data/elasticsearch
+fi
+
+rm -rf /opt/antiddos/lib/
+mkdir -p /opt/antiddos/lib/
+cp -r /antiddos/lib/antiddos.tar /opt/antiddos/lib/
+
+rm -rf /opt/antiddos/install/
+mkdir -p /opt/antiddos/install/
+cp -r /antiddos/install/* /opt/antiddos/install/
+
+cp -r /antiddos/install/antiddos.bash /etc/init.d/antiddos
+chmod +x /etc/init.d/antiddos
+
+if [ -e /sbin/chkconfig ] ; then
+	/sbin/chkconfig --add antiddos 
+elif [ -e /usr/sbin/update-rc.d ] ; then	
+	/usr/sbin/update-rc.d antiddos defaults 98 05	
+fi	
+
+mkdir -p /var/log/antiddos/
+if [ ! -d /opt/antiddos/log ]; then
+    mv -f /opt/antiddos/log/antiddosoperationlog.txt /var/log/antiddos/ > /dev/null 2>&1
+    mv -f /opt/antiddos/log/antiddossystemlog.txt /var/log/antiddos/ > /dev/null 2>&1
+    rm -rf /opt/antiddos/log
+else
+    touch /var/log/antiddos/antiddosoperationlog.txt
+    touch /var/log/antiddos/antiddossystemlog.txt
+fi
+
+echo *****install antiddos @`date`***** >> /var/log/antiddos/antiddossystemlog.txt
+echo *****install antiddos @`date`***** >> /var/log/antiddos/antiddosoperationlog.txt
+
+sh /opt/antiddos/install/run.sh
+
+#running=`which docker | grep docker`
+#if [ -n "$running" ]; then
+#    sh /opt/antiddos/install/run.sh
+#else   
+#    if [ -e /sbin/chkconfig ] ; then
+#	     echo -e "\033[31m Docker is not insntalled, please run: sh /opt/antiddos/install/run.sh \033[0m" 
+#    else	
+#	     echo "\033[31m Docker is not insntalled, please run: sh /opt/antiddos/install/run.sh \033[0m"  
+#    fi 
+#fi
+
+rm -rf /antiddos/
+echo "Install anti ddos successfully!"
+ 

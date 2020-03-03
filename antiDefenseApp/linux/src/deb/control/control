@@ -1,0 +1,9 @@
+Package: antiddos
+Version: 1.0-SNAPSHOT
+Architecture: all
+Section: net
+Priority: optional
+Depends: docker-engine (>= 1.8)
+Maintainer: cetc
+Description: antiddos
+Distribution: antiddos

@@ -1,0 +1,46 @@
+#!/bin/sh 
+#
+# Copyright (c) <2015> <cetc 32> and others.  All rights reserved.
+#
+# This program and the accompanying materials are made available under the terms of the Eclipse Public License
+# v1.0 which accompanies this distribution, and is available at http://www.eclipse.org/legal/epl-v10.html
+# @author cetc 32
+# @version 0.1
+#
+echo "Cleaning anti ddos environment..." 
+docker exec antiddos java -cp /usr/share/anti-ddos/antiDefense-1.0-SNAPSHOT.jar com.cetc.security.ddos.defense.main.CloseEventMain > /dev/null 2>&1
+sleep 30
+echo "Stopping anti ddos..."
+docker stop antiddos > /dev/null 2>&1
+sleep 2
+docker rm antiddos > /dev/null 2>&1
+sleep 2
+echo "Removing anti ddos..."
+docker rmi antiddos > /dev/null 2>&1
+
+##donotdeletethelinestart##
+if [ -e /sbin/chkconfig ] ; then
+	mkdir -p /antiddos/lib/	
+	cp -r /opt/antiddos/data/mysql/ /antiddos/lib/
+	cp -r /opt/antiddos/install/ /antiddos/
+	touch /antiddos/lib/antiddos.tar
+	touch /antiddos/lib/mysql/mysql.sql
+	touch /antiddos/version
+fi
+##donotdeletethelineend##
+
+mkdir -p /opt/antiddos/log/
+mv -f /var/log/antiddos/*.txt /opt/antiddos/log/  > /dev/null 2>&1
+rm -rf /var/log/antiddos/*
+
+rm -rf /opt/antiddos/lib  > /dev/null 2>&1
+rm -rf /opt/antiddos/install  > /dev/null 2>&1
+rm -rf /opt/antiddos/version
+
+if [ -e /sbin/chkconfig ] ; then
+	/sbin/chkconfig --del antiddos
+elif [ -e /usr/sbin/update-rc.d ] ; then	
+	/usr/sbin/update-rc.d -f antiddos remove
+fi
+
+rm -rf /etc/init.d/antiddos
